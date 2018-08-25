@@ -41,22 +41,23 @@ import numpy as np
 #
 # my major audio class
 #
+
 class RyAudio:
 
-    def __init__(self, Fs=16000, TinSec=10):
-        '''
-        Fs: 取樣頻率，預設值為 16000，
-        TinSec: 保存語音長度，預設值為 10 sec
-        '''
+    def __init__(self, Fs=22050, TinSec=10):
+        """
+                Fs: 取樣頻率，預設值為 16000，
+                TinSec: 保存語音長度，預設值為 10 sec
+                """
         print('RyAudio use %s' % pa.get_portaudio_version_text())
 
         self.Fs = Fs
-        self.spBufferSize = 1024
+        self.spBufferSize = 2048
         self.fftWindowSize = self.spBufferSize
 
         self.aP = pa.PyAudio()
-        self.iS = pa.Stream(PA_manager=self.aP, input=True, rate=self.Fs, channels=1, format=pa.paInt16)
-        self.oS = pa.Stream(PA_manager=self.aP, output=True, rate=self.Fs, channels=1, format=pa.paInt16)
+        self.iS = pa.Stream(PA_manager=self.aP, input=True, rate=self.Fs, channels=1, format=pa.paFloat32)
+        self.oS = pa.Stream(PA_manager=self.aP, output=True, rate=self.Fs, channels=1, format=pa.paFloat32)
         self.iTh = None
         self.oTh = None
 
@@ -91,17 +92,22 @@ class RyAudio:
         self.xBuf = np.zeros([self.frameN, self.spBufferSize])
 
     def getSound(self):
-        '''
-        抓音，作即時 DSP，算出 en, f0, fft
+        """
 
-        利用 self.gettingSound 來中止內部無窮迴圈。
-        '''
+                抓音，作即時 DSP，算出 en, f0, fft
+
+                利用 self.gettingSound 來中止內部無窮迴圈。
+                :return:
+                """
 
         print('self.gettingSound= ', self.gettingSound)
         # global globalSound, globalSoundTime, globalGettingSound, iS
 
         spBufferSize = self.spBufferSize
         fftWindowSize = self.fftWindowSize
+
+        dt = np.dtype("float32")
+        dt = dt.newbyteorder('>')
 
         t0 = time.time()
         while (self.gettingSound is True):  # 利用 self.gettingSound= False 來中止此無窮迴圈。
@@ -110,18 +116,8 @@ class RyAudio:
             # 抓音只需一行，抓成 bytestring
             #
             self.b = b = self.iS.read(spBufferSize)  # 1024
+            x = np.frombuffer(b, dtype=dt).copy()
 
-            #
-            # 以下是開始作即時 DSP 了。
-            #
-            #
-            # bytestring --> int16 --> float32
-            #
-
-            dt = np.dtype("int16")
-            dt = dt.newbyteorder('>')
-            x = np.frombuffer(b, dtype=dt)
-            x = x.astype('float32')
 
             #
             # 新鮮的語音波形， 趕快存下來，才能原音重現。
